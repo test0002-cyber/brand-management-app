@@ -135,6 +135,8 @@ async function authenticateToken(request, env) {
 router.post('/auth/login', async (request, env) => {
   try {
     console.log('Login request received');
+    console.log('Environment bindings:', Object.keys(env || {}));
+    
     const body = await request.json();
     console.log('Request body parsed:', body);
     const { username, password } = body;
@@ -147,10 +149,14 @@ router.post('/auth/login', async (request, env) => {
       return addCorsHeaders(response);
     }
 
+    if (!env.DB) {
+      throw new Error('D1 database binding "DB" is not configured');
+    }
+
     console.log('Attempting to authenticate user:', username);
     const db = new D1Helper(env.DB);
     const user = await db.getUserByUsername(username);
-    console.log('Database query result:', user ? 'User found' : 'User not found');
+    console.log('Database query result:', user ? `User found: ${user.username}` : 'User not found');
 
     if (!user) {
       const response = new Response(
@@ -370,6 +376,20 @@ router.get('/health', async (request, env) => {
     );
     return addCorsHeaders(response);
   }
+});
+
+// Debug endpoint - check environment and database setup
+router.get('/debug/env', (request, env) => {
+  const response = new Response(
+    JSON.stringify({
+      bindings: Object.keys(env || {}),
+      hasDB: !!env.DB,
+      dbType: env.DB ? typeof env.DB : 'undefined',
+      timestamp: new Date().toISOString(),
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  );
+  return addCorsHeaders(response);
 });
 
 // 404 handler
