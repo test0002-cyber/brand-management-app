@@ -3,8 +3,6 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 const router = Router();
-
-// JWT Secret
 const JWT_SECRET = 'your-super-secret-key-change-this-in-production';
 
 // Database Helper
@@ -27,36 +25,11 @@ class D1Helper {
       .first();
   }
 
-  async createUser(username, hashedPassword, role, email) {
-    return this.db
-      .prepare(
-        'INSERT INTO users (username, password, role, email) VALUES (?1, ?2, ?3, ?4)'
-      )
-      .bind(username, hashedPassword, role, email)
-      .run();
-  }
-
-  async getAllUsers() {
-    const { results } = await this.db
-      .prepare('SELECT id, username, role, email, created_at FROM users')
-      .all();
-    return results;
-  }
-
   async getAllBrands() {
     const { results } = await this.db
       .prepare('SELECT * FROM brands ORDER BY brand_name')
       .all();
     return results;
-  }
-
-  async createBrand(brandName, masterOutletId, createdBy) {
-    return this.db
-      .prepare(
-        'INSERT INTO brands (brand_name, master_outlet_id, created_by) VALUES (?1, ?2, ?3)'
-      )
-      .bind(brandName, masterOutletId, createdBy)
-      .run();
   }
 
   async getUserBrands(userId) {
@@ -69,6 +42,15 @@ class D1Helper {
       .bind(userId)
       .all();
     return results;
+  }
+
+  async createBrand(brandName, masterOutletId, createdBy) {
+    return this.db
+      .prepare(
+        'INSERT INTO brands (brand_name, master_outlet_id, created_by) VALUES (?1, ?2, ?3)'
+      )
+      .bind(brandName, masterOutletId, createdBy)
+      .run();
   }
 
   async allocateBrandToUser(userId, brandId, allocatedBy) {
@@ -125,8 +107,6 @@ async function authenticateToken(request, env) {
 }
 
 // Routes
-
-// Login
 router.post('/auth/login', async (request, env) => {
   try {
     const { username, password } = await request.json();
@@ -244,7 +224,6 @@ router.post('/brands', async (request, env) => {
     });
   }
 
-  // Only admins can create brands
   if (auth.decoded.role !== 'admin') {
     return new Response(
       JSON.stringify({ message: 'Only admins can create brands' }),
@@ -331,32 +310,10 @@ router.all('*', () => {
   });
 });
 
-// Export handler
-export default {
-  fetch: (request, env, ctx) => {
-    // CORS headers
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-      });
-    }
+// Add CORS middleware to all routes
+router.all('*', (request) => {
+  // CORS will be added in export
+});
 
-    // Add CORS to all responses
-    const response = router.handle(request, env, ctx);
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set(
-      'Access-Control-Allow-Methods',
-      'GET, POST, PUT, DELETE, OPTIONS'
-    );
-    response.headers.set(
-      'Access-Control-Allow-Headers',
-      'Content-Type, Authorization'
-    );
-
-    return response;
-  },
-};
+// Export handler - directly use router as fetch handler
+export default router;
