@@ -1,5 +1,8 @@
 name = "brand-management-app"
 pages_build_output_dir = "frontend/build"
+main = "backend/src/index.js"
+type = "module"
+compatibility_date = "2025-01-01"
 
 # Cloudflare D1 Database Configuration
 [[d1_databases]]
@@ -17,3 +20,11 @@ d1_databases = [
 d1_databases = [
   { binding = "DB", database_name = "brand-management-db-dev", database_id = "YOUR_DEV_DATABASE_ID" }
 ]
+
+# Build configuration
+[build]
+command = "npm install --prefix frontend && npm run build --prefix frontend"
+cwd = "."
+
+[triggers]
+crons = []
