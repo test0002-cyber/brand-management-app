@@ -351,16 +351,44 @@ router.get('/users/:userId/brands', async (request, env) => {
   }
 });
 
+// Simple ping endpoint - no database access
+router.get('/ping', () => {
+  const response = new Response(
+    JSON.stringify({
+      status: 'pong',
+      timestamp: new Date().toISOString(),
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  );
+  return addCorsHeaders(response);
+});
+
 // Health check
 router.get('/health', async (request, env) => {
   try {
-    const db = new D1Helper(env.DB);
-    const user = await db.getUserByUsername('admin');
+    let dbStatus = 'Unknown';
+    let user = null;
+    
+    // Try to query the database
+    if (env && env.DB) {
+      try {
+        user = await env.DB
+          .prepare('SELECT * FROM users WHERE username = ?1')
+          .bind('admin')
+          .first();
+        dbStatus = user ? 'Connected (admin user found)' : 'Connected (admin user NOT found)';
+      } catch (dbError) {
+        dbStatus = `Database error: ${dbError.message}`;
+      }
+    } else {
+      dbStatus = 'Database binding not configured';
+    }
+
     const response = new Response(
       JSON.stringify({
         status: 'OK',
         message: 'Brand Management API is running',
-        database: user ? 'Connected (admin user found)' : 'Connected (admin user NOT found)',
+        database: dbStatus,
         timestamp: new Date().toISOString(),
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -370,7 +398,7 @@ router.get('/health', async (request, env) => {
     const response = new Response(
       JSON.stringify({
         status: 'ERROR',
-        message: 'Database connection failed',
+        message: 'Health check failed',
         error: error.message,
         timestamp: new Date().toISOString(),
       }),
