@@ -1,5 +1,5 @@
 import { Router } from 'itty-router';
-import jwt from '@tsnify/jwt';
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 const router = Router();

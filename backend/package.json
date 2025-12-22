@@ -7,28 +7,22 @@
   "scripts": {
     "start": "node server.js",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "init-db": "node scripts/init-db.js"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "itty-router": "^5.0.0",
     "bcryptjs": "^2.4.3",
-    "csv-writer": "^1.6.0"
+    "itty-router": "^5.0.0",
+    "jsonwebtoken": "^9.0.3"
   },
   "devDependencies": {
     "wrangler": "^3.0.0"
-  }
-}
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
   },
   "keywords": [
-    "express",
-    "sqlite",
     "brand-management",
-    "jwt-auth"
+    "cloudflare",
+    "workers",
+    "d1"
   ],
-  "author": "MiniMax Agent",
+  "author": "Brand Management Team",
   "license": "MIT"
 }
