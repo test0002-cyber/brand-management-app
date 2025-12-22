@@ -394,6 +394,107 @@ router.get('/debug/env', (request, env) => {
   return addCorsHeaders(response);
 });
 
+// Setup endpoint - initialize database schema and demo users
+router.post('/setup/init-db', async (request, env) => {
+  try {
+    if (!env.DB) {
+      throw new Error('D1 database binding "DB" is not configured');
+    }
+
+    // Create users table
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+        email TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // Create brands table
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS brands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        brand_name TEXT NOT NULL,
+        master_outlet_id TEXT NOT NULL,
+        created_by INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      )
+    `).run();
+
+    // Create user_allocations table
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS user_allocations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        brand_id INTEGER NOT NULL,
+        allocated_by INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (brand_id) REFERENCES brands(id),
+        FOREIGN KEY (allocated_by) REFERENCES users(id),
+        UNIQUE(user_id, brand_id)
+      )
+    `).run();
+
+    // Create login_logs table
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS login_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        store_id TEXT NOT NULL,
+        actual_client_store_id TEXT NOT NULL,
+        store_manager_name TEXT NOT NULL,
+        store_manager_number TEXT NOT NULL,
+        login_type TEXT NOT NULL CHECK(login_type IN ('parent', 'team member')),
+        login_date DATE NOT NULL,
+        brand_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (brand_id) REFERENCES brands(id)
+      )
+    `).run();
+
+    // Insert demo users (if they don't already exist)
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
+    ).bind('admin', 'admin_hashed_password_here', 'admin', 'admin@brand-management.com').run();
+
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
+    ).bind('user1', 'user1_hashed_password_here', 'user', 'user1@brand-management.com').run();
+
+    // Verify users were created
+    const { results: users } = await env.DB.prepare('SELECT id, username, role FROM users').all();
+
+    const response = new Response(
+      JSON.stringify({
+        status: 'SUCCESS',
+        message: 'Database initialized successfully',
+        tables: ['users', 'brands', 'user_allocations', 'login_logs'],
+        users: users || [],
+        timestamp: new Date().toISOString(),
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+    return addCorsHeaders(response);
+  } catch (error) {
+    const response = new Response(
+      JSON.stringify({
+        status: 'ERROR',
+        message: 'Database initialization failed',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+    return addCorsHeaders(response);
+  }
+});
+
 // 404 handler
 router.all('*', () => {
   const response = new Response(JSON.stringify({ message: 'Route not found' }), {
