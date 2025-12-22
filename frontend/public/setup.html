@@ -193,6 +193,8 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
+                    mode: 'cors',
+                    credentials: 'omit',
                 });
 
                 const data = await response.json();
@@ -234,8 +236,22 @@
                 resultDiv.innerHTML = `
                     <h3>❌ Connection Error</h3>
                     <p>Could not reach the API server.</p>
-                    <pre>${error.message}</pre>
-                    <p style="margin-top: 10px; font-size: 12px;">Make sure the Worker is deployed and accessible at: ${API_URL}</p>
+                    <p style="margin-top: 10px; font-size: 12px; word-break: break-all;">${error.message}</p>
+                    <details style="margin-top: 15px; font-size: 12px;">
+                        <summary>Troubleshooting</summary>
+                        <div style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 3px;">
+                            <p><strong>1. Verify Worker is deployed:</strong></p>
+                            <p><a href="${API_URL}/health" target="_blank" style="color: #667eea;">Click here to test API health</a></p>
+                            <p style="margin-top: 10px;"><strong>2. API URL being used:</strong></p>
+                            <p style="word-break: break-all;">${API_URL}</p>
+                            <p style="margin-top: 10px;"><strong>3. Common issues:</strong></p>
+                            <ul style="margin-left: 20px;">
+                                <li>Worker not deployed (check Cloudflare dashboard)</li>
+                                <li>Incorrect API URL (check window._env_.REACT_APP_API_URL)</li>
+                                <li>Browser CORS policy blocking the request</li>
+                            </ul>
+                        </div>
+                    </details>
                 `;
             } finally {
                 button.disabled = false;
@@ -249,7 +265,10 @@
         // Check if already initialized
         window.addEventListener('load', async () => {
             try {
-                const response = await fetch(`${API_URL}/health`);
+                const response = await fetch(`${API_URL}/health`, {
+                    mode: 'cors',
+                    credentials: 'omit',
+                });
                 const data = await response.json();
                 
                 if (data.database && data.database.includes('admin user found')) {
@@ -266,6 +285,7 @@
                 }
             } catch (error) {
                 // API not reachable, that's ok - user will click the button
+                console.log('Health check error (expected if API not initialized yet):', error.message);
             }
         });
     </script>
