@@ -7,13 +7,15 @@ const JWT_SECRET = 'your-super-secret-key-change-this-in-production';
 
 // CORS Helper: Add CORS headers to response
 function addCorsHeaders(response) {
-  const headers = new Headers(response.headers);
+  // Clone the response to avoid consuming the body stream
+  const clonedResponse = response.clone();
+  const headers = new Headers(clonedResponse.headers);
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
+  return new Response(clonedResponse.body, {
+    status: clonedResponse.status,
+    statusText: clonedResponse.statusText,
     headers,
   });
 }
