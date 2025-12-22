@@ -1,0 +1,45 @@
+{
+  "name": "brand-management-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Brand Management Application",
+  "main": "index.js",
+  "homepage": "https://test0002-cyber.github.io/brand-management-app",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.10.5",
+    "@emotion/styled": "^11.10.5",
+    "@mui/icons-material": "^5.11.9",
+    "@mui/material": "^5.11.10",
+    "axios": "^1.3.4",
+    "date-fns": "^2.29.3",
+    "react": "^18.2.0",
+    "react-datepicker": "^4.10.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "react-scripts": "5.0.1"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "author": "MiniMax Agent",
+  "license": "MIT",
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
+  }
+}
