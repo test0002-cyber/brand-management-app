@@ -1,0 +1,9 @@
+[build]
+command = "cd frontend && npm install && npm run build"
+publish = "frontend/build"
+
+[env.production]
+vars = { REACT_APP_API_URL = "https://api.yourdomain.com" }
+
+[env.development]
+vars = { REACT_APP_API_URL = "http://localhost:5000/api" }
