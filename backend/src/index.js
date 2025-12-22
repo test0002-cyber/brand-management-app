@@ -134,7 +134,10 @@ async function authenticateToken(request, env) {
 // Routes
 router.post('/auth/login', async (request, env) => {
   try {
-    const { username, password } = await request.json();
+    console.log('Login request received');
+    const body = await request.json();
+    console.log('Request body parsed:', body);
+    const { username, password } = body;
 
     if (!username || !password) {
       const response = new Response(
@@ -144,8 +147,10 @@ router.post('/auth/login', async (request, env) => {
       return addCorsHeaders(response);
     }
 
+    console.log('Attempting to authenticate user:', username);
     const db = new D1Helper(env.DB);
     const user = await db.getUserByUsername(username);
+    console.log('Database query result:', user ? 'User found' : 'User not found');
 
     if (!user) {
       const response = new Response(
@@ -194,8 +199,13 @@ router.post('/auth/login', async (request, env) => {
     );
     return addCorsHeaders(response);
   } catch (error) {
+    console.error('Login error:', error);
     const response = new Response(
-      JSON.stringify({ message: 'Internal server error', error: error.message }),
+      JSON.stringify({ 
+        message: 'Internal server error', 
+        error: error.message,
+        stack: error.stack
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
     return addCorsHeaders(response);
@@ -334,16 +344,32 @@ router.get('/users/:userId/brands', async (request, env) => {
 });
 
 // Health check
-router.get('/health', () => {
-  const response = new Response(
-    JSON.stringify({
-      status: 'OK',
-      message: 'Brand Management API is running',
-      timestamp: new Date().toISOString(),
-    }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } }
-  );
-  return addCorsHeaders(response);
+router.get('/health', async (request, env) => {
+  try {
+    const db = new D1Helper(env.DB);
+    const user = await db.getUserByUsername('admin');
+    const response = new Response(
+      JSON.stringify({
+        status: 'OK',
+        message: 'Brand Management API is running',
+        database: user ? 'Connected (admin user found)' : 'Connected (admin user NOT found)',
+        timestamp: new Date().toISOString(),
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+    return addCorsHeaders(response);
+  } catch (error) {
+    const response = new Response(
+      JSON.stringify({
+        status: 'ERROR',
+        message: 'Database connection failed',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+    return addCorsHeaders(response);
+  }
 });
 
 // 404 handler
