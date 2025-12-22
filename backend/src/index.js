@@ -370,7 +370,16 @@ export default {
       });
     }
 
-    const response = await router.handle(request, env);
-    return addCorsHeaders(response);
+    try {
+      const response = await router.handle(request, env);
+      return addCorsHeaders(response);
+    } catch (error) {
+      console.error('Worker error:', error);
+      const errorResponse = new Response(
+        JSON.stringify({ message: 'Internal Server Error', error: error.message }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+      return addCorsHeaders(errorResponse);
+    }
   },
 };
