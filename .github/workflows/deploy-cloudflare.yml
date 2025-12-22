@@ -1,0 +1,92 @@
+name: Build and Deploy to Cloudflare
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Build frontend (production)
+        run: npm run build --prefix frontend
+
+      - name: Deploy frontend to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          projectName: ${{ secrets.CF_PAGES_PROJECT_NAME }}
+          directory: frontend/build
+
+      - name: Publish backend Worker via Wrangler
+        uses: cloudflare/wrangler-action@1.3.0
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          workingDirectory: backend
+          command: publish
+
+      - name: Initialize D1 database schema (optional)
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+        run: |
+          set -e
+          if [ -z "$D1_DATABASE_ID" ]; then
+            echo "D1_DATABASE_ID not set; skipping schema initialization. (Optional secret)"
+            exit 0
+          fi
+          echo "Initializing D1 database schema..."
+          echo "Note: D1 schema initialization requires manual setup via Cloudflare Dashboard or local Wrangler D1 commands."
+          echo "To initialize locally: npx wrangler d1 execute --binding DB --file migrations/0001_init_schema.sql"
+
+      - name: Smoke test deployed Pages site (optional)
+        env:
+          CF_PAGES_URL: ${{ secrets.CF_PAGES_URL }}
+        run: |
+          set -e
+          if [ -z "$CF_PAGES_URL" ]; then
+            echo "CF_PAGES_URL not set; skipping Pages smoke test. (Optional secret)"
+            exit 0
+          fi
+          echo "Checking Pages site: $CF_PAGES_URL"
+          # Check root and env.js
+          curl -sSfL "$CF_PAGES_URL/" >/dev/null
+          curl -sSfL "$CF_PAGES_URL/env.js" >/dev/null
+          echo "Pages smoke test passed"
+
+      - name: Smoke test backend Worker (optional)
+        env:
+          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+        run: |
+          set -e
+          if [ -z "$CF_WORKER_URL" ]; then
+            echo "CF_WORKER_URL not set; skipping Worker smoke test. (Optional secret)"
+            exit 0
+          fi
+          echo "Checking Worker endpoint: $CF_WORKER_URL"
+          # Perform a simple GET; endpoint may require auth so don't fail on non-2xx
+          if curl -sS -o /dev/null -w "%{http_code}" "$CF_WORKER_URL/" | grep -q "^[23]"; then
+            echo "Worker smoke test OK (2xx)"
+          else
+            echo "Worker responded with non-2xx - see logs or adjust endpoint" && exit 1
+          fi
+
+      - name: Finished
+        run: echo "Cloudflare Pages and Worker publish steps complete."

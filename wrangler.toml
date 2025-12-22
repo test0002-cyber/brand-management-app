@@ -1,6 +1,7 @@
 name = "brand-management-app"
 pages_build_output_dir = "frontend/build"
 
-[build]
-command = "npm install --prefix frontend && npm run build --prefix frontend"
-cwd = "."
+# Note: Cloudflare Pages configuration does not accept a top-level [build]
+# table in `wrangler.toml`. The Pages service handles the build step
+# separately (via the Pages UI or a Pages Git build). Keep this file
+# minimal so `wrangler` can validate it for Pages projects.

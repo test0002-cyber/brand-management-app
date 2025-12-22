@@ -120,6 +120,37 @@ The backend will be running on `http://localhost:5000`
 
 The frontend will be running on `http://localhost:3000`
 
+## Deploying to Cloudflare (recommended automated approach)
+
+This repository contains two deployable pieces:
+
+- Frontend: a Create React App site in `frontend/` to be hosted on Cloudflare Pages.
+- Backend: a Cloudflare Worker in `backend/` (uses D1) and configured by `backend/wrangler.toml`.
+
+To deploy both automatically on every push to `main`, this repo includes a GitHub Actions workflow: `.github/workflows/deploy-cloudflare.yml`.
+
+Required GitHub repository secrets (set these in the repo Settings → Secrets):
+
+- `CF_API_TOKEN` — Cloudflare API token with permissions to publish Pages and Workers.
+- `CF_ACCOUNT_ID` — Your Cloudflare account ID.
+- `CF_PAGES_PROJECT_NAME` — The Pages project name (the Pages site slug configured in Cloudflare).
+
+Optional secrets for CI smoke tests:
+
+- `CF_PAGES_URL` — (optional) e.g. `https://your-pages-project.pages.dev` — used by the workflow to verify the site after deployment.
+- `CF_WORKER_URL` — (optional) absolute Worker URL (e.g. `https://brand-management-api.testgithub0002.workers.dev`) — used to perform a simple health check after publishing the worker.
+
+How the workflow works:
+
+1. Checks out the repo.
+2. Installs frontend dependencies and runs `npm run build --prefix frontend`.
+3. Deploys `frontend/build` to Cloudflare Pages using the Pages Action.
+4. Publishes the backend Worker from the `backend/` directory using `wrangler`.
+
+Notes & alternatives:
+- The repository also contains a runtime override file `frontend/public/env.js` so the built frontend can be pointed to a different API at runtime without rebuilding.
+- If you prefer Pages to perform the build itself (instead of the Action), set the Pages project to build from Git and configure the build command and output directory there; the top-level `wrangler.toml` was intentionally kept minimal for Pages compatibility.
+
 ## Default Users
 
 The application comes with pre-configured demo accounts:
