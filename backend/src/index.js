@@ -5,6 +5,31 @@ import bcrypt from 'bcryptjs';
 const router = Router();
 const JWT_SECRET = 'your-super-secret-key-change-this-in-production';
 
+// CORS Helper: Add CORS headers to response
+function addCorsHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set('Access-Control-Allow-Origin', '*');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+// Handle preflight requests
+router.options('*', () => {
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+});
+
 // Database Helper
 class D1Helper {
   constructor(db) {
@@ -112,20 +137,22 @@ router.post('/auth/login', async (request, env) => {
     const { username, password } = await request.json();
 
     if (!username || !password) {
-      return new Response(
+      const response = new Response(
         JSON.stringify({ message: 'Username and password are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+      return addCorsHeaders(response);
     }
 
     const db = new D1Helper(env.DB);
     const user = await db.getUserByUsername(username);
 
     if (!user) {
-      return new Response(
+      const response = new Response(
         JSON.stringify({ message: 'Invalid credentials' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
+      return addCorsHeaders(response);
     }
 
     // For demo, accept hardcoded passwords
@@ -139,10 +166,11 @@ router.post('/auth/login', async (request, env) => {
       (await bcrypt.compare(password, user.password));
 
     if (!isValidPassword) {
-      return new Response(
+      const response = new Response(
         JSON.stringify({ message: 'Invalid credentials' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
+      return addCorsHeaders(response);
     }
 
     const token = jwt.sign(
@@ -151,7 +179,7 @@ router.post('/auth/login', async (request, env) => {
       { expiresIn: '24h' }
     );
 
-    return new Response(
+    const response = new Response(
       JSON.stringify({
         message: 'Login successful',
         token,
@@ -164,11 +192,13 @@ router.post('/auth/login', async (request, env) => {
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
+    return addCorsHeaders(response);
   } catch (error) {
-    return new Response(
+    const response = new Response(
       JSON.stringify({ message: 'Internal server error', error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
+    return addCorsHeaders(response);
   }
 });
 
@@ -176,41 +206,46 @@ router.post('/auth/login', async (request, env) => {
 router.get('/auth/verify', async (request, env) => {
   const auth = await authenticateToken(request, env);
   if (auth.error) {
-    return new Response(JSON.stringify({ message: auth.error }), {
+    const response = new Response(JSON.stringify({ message: auth.error }), {
       status: auth.status,
       headers: { 'Content-Type': 'application/json' },
     });
+    return addCorsHeaders(response);
   }
 
-  return new Response(JSON.stringify({ user: auth.user }), {
+  const response = new Response(JSON.stringify({ user: auth.user }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
+  return addCorsHeaders(response);
 });
 
 // Get all brands
 router.get('/brands', async (request, env) => {
   const auth = await authenticateToken(request, env);
   if (auth.error) {
-    return new Response(JSON.stringify({ message: auth.error }), {
+    const response = new Response(JSON.stringify({ message: auth.error }), {
       status: auth.status,
       headers: { 'Content-Type': 'application/json' },
     });
+    return addCorsHeaders(response);
   }
 
   try {
     const db = new D1Helper(env.DB);
     const brands = await db.getAllBrands();
 
-    return new Response(JSON.stringify({ brands }), {
+    const response = new Response(JSON.stringify({ brands }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
+    return addCorsHeaders(response);
   } catch (error) {
-    return new Response(
+    const response = new Response(
       JSON.stringify({ message: 'Internal server error', error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
+    return addCorsHeaders(response);
   }
 });
 
@@ -218,27 +253,30 @@ router.get('/brands', async (request, env) => {
 router.post('/brands', async (request, env) => {
   const auth = await authenticateToken(request, env);
   if (auth.error) {
-    return new Response(JSON.stringify({ message: auth.error }), {
+    const response = new Response(JSON.stringify({ message: auth.error }), {
       status: auth.status,
       headers: { 'Content-Type': 'application/json' },
     });
+    return addCorsHeaders(response);
   }
 
   if (auth.decoded.role !== 'admin') {
-    return new Response(
+    const response = new Response(
       JSON.stringify({ message: 'Only admins can create brands' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     );
+    return addCorsHeaders(response);
   }
 
   try {
     const { brand_name, master_outlet_id } = await request.json();
 
     if (!brand_name || !master_outlet_id) {
-      return new Response(
+      const response = new Response(
         JSON.stringify({ message: 'Brand name and master outlet ID are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+      return addCorsHeaders(response);
     }
 
     const db = new D1Helper(env.DB);
@@ -248,18 +286,20 @@ router.post('/brands', async (request, env) => {
       auth.decoded.userId
     );
 
-    return new Response(
+    const response = new Response(
       JSON.stringify({
         message: 'Brand created successfully',
         brand: { id: result.meta.last_row_id, brand_name, master_outlet_id },
       }),
       { status: 201, headers: { 'Content-Type': 'application/json' } }
     );
+    return addCorsHeaders(response);
   } catch (error) {
-    return new Response(
+    const response = new Response(
       JSON.stringify({ message: 'Internal server error', error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
+    return addCorsHeaders(response);
   }
 });
 
@@ -267,10 +307,11 @@ router.post('/brands', async (request, env) => {
 router.get('/users/:userId/brands', async (request, env) => {
   const auth = await authenticateToken(request, env);
   if (auth.error) {
-    return new Response(JSON.stringify({ message: auth.error }), {
+    const response = new Response(JSON.stringify({ message: auth.error }), {
       status: auth.status,
       headers: { 'Content-Type': 'application/json' },
     });
+    return addCorsHeaders(response);
   }
 
   try {
@@ -278,21 +319,23 @@ router.get('/users/:userId/brands', async (request, env) => {
     const db = new D1Helper(env.DB);
     const brands = await db.getUserBrands(userId);
 
-    return new Response(JSON.stringify({ brands }), {
+    const response = new Response(JSON.stringify({ brands }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
+    return addCorsHeaders(response);
   } catch (error) {
-    return new Response(
+    const response = new Response(
       JSON.stringify({ message: 'Internal server error', error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
+    return addCorsHeaders(response);
   }
 });
 
 // Health check
 router.get('/health', () => {
-  return new Response(
+  const response = new Response(
     JSON.stringify({
       status: 'OK',
       message: 'Brand Management API is running',
@@ -300,20 +343,34 @@ router.get('/health', () => {
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );
+  return addCorsHeaders(response);
 });
 
 // 404 handler
 router.all('*', () => {
-  return new Response(JSON.stringify({ message: 'Route not found' }), {
+  const response = new Response(JSON.stringify({ message: 'Route not found' }), {
     status: 404,
     headers: { 'Content-Type': 'application/json' },
   });
+  return addCorsHeaders(response);
 });
 
-// Add CORS middleware to all routes
-router.all('*', (request) => {
-  // CORS will be added in export
-});
+// Export handler with CORS middleware
+export default {
+  async fetch(request, env) {
+    // Handle preflight requests
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Max-Age': '86400',
+        },
+      });
+    }
 
-// Export handler - directly use router as fetch handler
-export default router;
+    const response = await router.handle(request, env);
+    return addCorsHeaders(response);
+  },
+};
