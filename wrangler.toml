@@ -1,2 +1,19 @@
 name = "brand-management-app"
 pages_build_output_dir = "frontend/build"
+
+# Cloudflare D1 Database Configuration
+[[d1_databases]]
+binding = "DB"
+database_name = "brand-management-db"
+database_id = "YOUR_DATABASE_ID"
+
+# Environment configurations
+[env.production]
+d1_databases = [
+  { binding = "DB", database_name = "brand-management-db", database_id = "YOUR_DATABASE_ID" }
+]
+
+[env.development]
+d1_databases = [
+  { binding = "DB", database_name = "brand-management-db-dev", database_id = "YOUR_DEV_DATABASE_ID" }
+]
