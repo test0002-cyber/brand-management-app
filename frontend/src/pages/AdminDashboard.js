@@ -16,6 +16,8 @@ import UserAllocation from '../components/UserAllocation';
 import DataExport from '../components/DataExport';
 import DataView from '../components/DataView';
 
+import UserManagement from '../components/UserManagement';
+
 const AdminDashboard = () => {
   const [currentTab, setCurrentTab] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -57,10 +59,11 @@ const AdminDashboard = () => {
             </Button>
           </Box>
         </Box>
-        
+
         <Tabs value={currentTab} onChange={handleTabChange}>
           <Tab label="Brand Management" />
           <Tab label="User Allocation" />
+          <Tab label="User Management" />
           <Tab label="Data Export" />
           <Tab label="Data View" />
         </Tabs>
@@ -75,10 +78,14 @@ const AdminDashboard = () => {
       </TabPanel>
 
       <TabPanel value={currentTab} index={2}>
-        <DataExport />
+        <UserManagement />
       </TabPanel>
 
       <TabPanel value={currentTab} index={3}>
+        <DataExport />
+      </TabPanel>
+
+      <TabPanel value={currentTab} index={4}>
         <DataView />
       </TabPanel>
     </Container>

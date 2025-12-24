@@ -514,7 +514,7 @@ async function handleRequest(request, env) {
         return addCorsHeaders(new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
       }
 
-      const { results: users } = await env.DB.prepare('SELECT id, username, role, email, created_at FROM users WHERE role = "user"').all();
+      const { results: users } = await env.DB.prepare('SELECT id, username, role, email, created_at FROM users').all();
 
       // Get allocations for each user
       const usersWithAllocations = await Promise.all(users.map(async (u) => {
@@ -528,6 +528,208 @@ async function handleRequest(request, env) {
       }));
 
       return addCorsHeaders(new Response(JSON.stringify({ users: usersWithAllocations }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    } catch (error) {
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'Internal server error', error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
+    }
+  }
+
+  // Route: POST /users (Admin only)
+  if (method === 'POST' && pathname === '/users') {
+    try {
+      const authHeader = request.headers.get('Authorization');
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      if (decoded.role !== 'admin') {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      const { username, password, role, email } = await request.json();
+      if (!username || !password || !role) {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'Username, password and role are required' }), { status: 400, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await env.DB.prepare('INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)')
+        .bind(username, hashedPassword, role, email || null).run();
+
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'User created successfully' }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
+    } catch (error) {
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'Internal server error', error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
+    }
+  }
+
+  // Route: PUT /users/:id (Admin only)
+  if (method === 'PUT' && pathname.startsWith('/users/') && !pathname.includes('allocate')) {
+    try {
+      const authHeader = request.headers.get('Authorization');
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      if (decoded.role !== 'admin') {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      const userId = pathname.split('/').pop();
+      const { role, email, password } = await request.json();
+
+      let query = 'UPDATE users SET updated_at = CURRENT_TIMESTAMP';
+      let params = [];
+
+      if (role) {
+        query += ', role = ?';
+        params.push(role);
+      }
+      if (email !== undefined) {
+        query += ', email = ?';
+        params.push(email);
+      }
+      if (password) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        query += ', password = ?';
+        params.push(hashedPassword);
+      }
+
+      query += ' WHERE id = ?';
+      params.push(userId);
+
+      await env.DB.prepare(query).bind(...params).run();
+
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'User updated successfully' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    } catch (error) {
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'Internal server error', error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
+    }
+  }
+
+  // Route: DELETE /users/:id (Admin only)
+  if (method === 'DELETE' && pathname.startsWith('/users/') && !pathname.includes('allocate')) {
+    try {
+      const authHeader = request.headers.get('Authorization');
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      if (decoded.role !== 'admin') {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      const userId = pathname.split('/').pop();
+      if (parseInt(userId) === decoded.userId) {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'Cannot delete yourself' }), { status: 400, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      // Delete allocations first
+      await env.DB.prepare('DELETE FROM user_allocations WHERE user_id = ?').bind(userId).run();
+      // Delete user
+      await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'User deleted successfully' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    } catch (error) {
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'Internal server error', error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
+    }
+  }
+
+  // Route: POST /users/:userId/allocate-bulk
+  if (method === 'POST' && pathname.includes('/allocate-bulk')) {
+    try {
+      const authHeader = request.headers.get('Authorization');
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      if (decoded.role !== 'admin') {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      const userId = pathname.split('/')[2];
+      const { brandIds } = await request.json(); // Array of brand IDs
+
+      if (!Array.isArray(brandIds)) {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'brandIds must be an array' }), { status: 400, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      // Clear existing allocations
+      await env.DB.prepare('DELETE FROM user_allocations WHERE user_id = ?').bind(userId).run();
+
+      // Insert new allocations
+      if (brandIds.length > 0) {
+        const statements = brandIds.map(brandId =>
+          env.DB.prepare('INSERT INTO user_allocations (user_id, brand_id, allocated_by) VALUES (?, ?, ?)')
+            .bind(userId, brandId, decoded.userId)
+        );
+        await env.DB.batch(statements);
+      }
+
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'Allocations updated successfully' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    } catch (error) {
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'Internal server error', error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
+    }
+  }
+
+  // Route: GET /export/allocations (Admin only)
+  if (method === 'GET' && pathname === '/export/allocations') {
+    try {
+      const authHeader = request.headers.get('Authorization');
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      if (decoded.role !== 'admin') {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      const { results } = await env.DB.prepare(`
+        SELECT u.username, b.brand_name, b.id as brand_id, u.id as user_id 
+        FROM user_allocations ua
+        JOIN users u ON ua.user_id = u.id
+        JOIN brands b ON ua.brand_id = b.id
+        ORDER BY u.username, b.brand_name
+      `).all();
+
+      const headers = ['Username', 'User ID', 'Brand Name', 'Brand ID'];
+      const csvRows = results.map(r => [
+        r.username,
+        r.user_id,
+        r.brand_name,
+        r.brand_id
+      ].map(v => `"${v}"`).join(','));
+
+      const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+      return addCorsHeaders(new Response(csvContent, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename=allocations_export.csv'
+        }
+      }));
+    } catch (error) {
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'Internal server error', error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
+    }
+  }
+
+  // Route: POST /import/allocations (Admin only)
+  if (method === 'POST' && pathname === '/import/allocations') {
+    try {
+      const authHeader = request.headers.get('Authorization');
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      if (decoded.role !== 'admin') {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      const { allocations } = await request.json(); // Expected: [{ user_id, brand_id }]
+
+      if (!Array.isArray(allocations)) {
+        return addCorsHeaders(new Response(JSON.stringify({ message: 'allocations must be an array' }), { status: 400, headers: { 'Content-Type': 'application/json' } }));
+      }
+
+      const statements = allocations.map(a =>
+        env.DB.prepare('INSERT OR IGNORE INTO user_allocations (user_id, brand_id, allocated_by) VALUES (?, ?, ?)')
+          .bind(a.user_id, a.brand_id, decoded.userId)
+      );
+
+      await env.DB.batch(statements);
+
+      return addCorsHeaders(new Response(JSON.stringify({ message: 'Allocations imported successfully' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     } catch (error) {
       return addCorsHeaders(new Response(JSON.stringify({ message: 'Internal server error', error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
     }
