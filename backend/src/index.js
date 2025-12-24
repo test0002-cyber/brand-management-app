@@ -235,6 +235,98 @@ async function handleRequest(request, env) {
     }
   }
 
+  // Route: POST /auth/verify
+  if (method === 'POST' && pathname === '/auth/verify') {
+    try {
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        const response = new Response(
+          JSON.stringify({ message: 'No token provided' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+        return addCorsHeaders(response);
+      }
+
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      const response = new Response(
+        JSON.stringify({
+          valid: true,
+          user: {
+            id: decoded.userId,
+            username: decoded.username,
+            role: decoded.role,
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+      return addCorsHeaders(response);
+    } catch (error) {
+      const response = new Response(
+        JSON.stringify({ valid: false, message: 'Invalid token' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+      return addCorsHeaders(response);
+    }
+  }
+
+  // Route: GET /brands
+  if (method === 'GET' && pathname === '/brands') {
+    try {
+      // Verify authentication
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        const response = new Response(
+          JSON.stringify({ message: 'Authentication required' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+        return addCorsHeaders(response);
+      }
+
+      const token = authHeader.substring(7);
+      let decoded;
+      try {
+        decoded = jwt.verify(token, JWT_SECRET);
+      } catch (err) {
+        const response = new Response(
+          JSON.stringify({ message: 'Invalid token' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+        return addCorsHeaders(response);
+      }
+
+      if (!env.DB) {
+        throw new Error('D1 database binding "DB" is not configured');
+      }
+
+      // Check if brands table exists, if not return empty array
+      let brands = [];
+      try {
+        const { results } = await env.DB.prepare('SELECT * FROM brands').all();
+        brands = results || [];
+      } catch (dbError) {
+        // Table might not exist yet, return empty array
+        console.log('Brands table not found or error:', dbError.message);
+      }
+
+      const response = new Response(
+        JSON.stringify(brands),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+      return addCorsHeaders(response);
+    } catch (error) {
+      const response = new Response(
+        JSON.stringify({
+          message: 'Internal server error',
+          error: error.message,
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+      return addCorsHeaders(response);
+    }
+  }
+
   // 404
   const response = new Response(
     JSON.stringify({ message: 'Route not found' }),
