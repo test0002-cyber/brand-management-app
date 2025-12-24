@@ -18,6 +18,7 @@ import {
   TableHead,
   TableRow,
   Chip,
+  TextField,
 } from '@mui/material';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -228,13 +229,14 @@ const DataView = () => {
                 <Typography color="textSecondary" gutterBottom>
                   Login Types
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1 
- }}>
-                  <Chip                    label={`Parent: ${summary.parent_logins}`}
+                <Box sx={{
+                  display: 'flex', gap: 1
+                }}>
+                  <Chip label={`Parent: ${summary.parent_logins}`}
                     size="small"
                     color="primary"
                   />
-                  <Chip 
+                  <Chip
                     label={`Team: ${summary.team_member_logins}`}
                     size="small"
                     color="secondary"
@@ -279,8 +281,8 @@ const DataView = () => {
                   <TableRow key={index}>
                     <TableCell>{log.login_date}</TableCell>
                     <TableCell>
-                      <Chip 
-                        label={log.brand_name || 'N/A'} 
+                      <Chip
+                        label={log.brand_name || 'N/A'}
                         size="small"
                         variant="outlined"
                       />
@@ -290,7 +292,7 @@ const DataView = () => {
                     <TableCell>{log.store_manager_name}</TableCell>
                     <TableCell>{log.store_manager_number}</TableCell>
                     <TableCell>
-                      <Chip 
+                      <Chip
                         label={log.login_type}
                         size="small"
                         color={log.login_type === 'parent' ? 'primary' : 'secondary'}
