@@ -23,13 +23,17 @@ async function handleRequest(request, env) {
   const method = request.method;
   let pathname = url.pathname;
 
-  // Normalize pathname: remove /api prefix if present and remove trailing slash
-  if (pathname.startsWith('/api')) {
+  if (pathname === '/api') {
+    pathname = '/';
+  } else if (pathname.startsWith('/api/')) {
     pathname = pathname.substring(4);
   }
+
+  // Remove trailing slash
   if (pathname.endsWith('/') && pathname.length > 1) {
     pathname = pathname.slice(0, -1);
   }
+
   if (pathname === '') pathname = '/';
 
   // Handle preflight
@@ -42,6 +46,20 @@ async function handleRequest(request, env) {
         'Access-Control-Max-Age': '86400',
       },
     });
+  }
+
+  // Route: GET / (Root)
+  if (method === 'GET' && (pathname === '/' || pathname === '')) {
+    const response = new Response(
+      JSON.stringify({
+        message: 'Brand Management API',
+        status: 'online',
+        health: `${url.origin}/health`,
+        timestamp: new Date().toISOString()
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+    return addCorsHeaders(response);
   }
 
   // Route: GET /ping
