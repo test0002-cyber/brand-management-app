@@ -21,7 +21,16 @@ function addCorsHeaders(response) {
 async function handleRequest(request, env) {
   const url = new URL(request.url);
   const method = request.method;
-  const pathname = url.pathname;
+  let pathname = url.pathname;
+
+  // Normalize pathname: remove /api prefix if present and remove trailing slash
+  if (pathname.startsWith('/api')) {
+    pathname = pathname.substring(4);
+  }
+  if (pathname.endsWith('/') && pathname.length > 1) {
+    pathname = pathname.slice(0, -1);
+  }
+  if (pathname === '') pathname = '/';
 
   // Handle preflight
   if (method === 'OPTIONS') {
