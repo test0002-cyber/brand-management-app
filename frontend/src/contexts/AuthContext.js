@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
     const verifyToken = async () => {
       if (token) {
         try {
-          const response = await axios.get(`${API_BASE_URL}/auth/verify`);
+          const response = await axios.post(`${API_BASE_URL}/auth/verify`);
           setUser(response.data.user);
         } catch (error) {
           console.error('Token verification failed:', error);
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       const { token: newToken, user: userData } = response.data;
-      
+
       localStorage.setItem('token', newToken);
       setToken(newToken);
       setUser(userData);
@@ -63,9 +63,9 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: userData };
     } catch (error) {
       console.error('Login failed:', error);
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Login failed' 
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Login failed'
       };
     }
   };
